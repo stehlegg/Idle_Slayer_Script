@@ -145,9 +145,7 @@ Func Main()
 		; Claim quests
 		PixelSearch(1130, 610, 1130, 610, 0xCBCB4C)
 		If Not @error Then
-			SyncProcess(False)
 			ClaimQuests()
-			SyncProcess(True)
 		EndIf
 
 		; Rage when Soul Bonus
@@ -159,9 +157,7 @@ Func Main()
 		; Collect minions
 		PixelSearch(99, 113, 99, 113, 0xFFFF7A)
 		If Not @error Then
-			SyncProcess(False)
 			CollectMinion()
-			SyncProcess(True)
 		EndIf
 
 
@@ -238,9 +234,7 @@ Func Main()
 					$iAutoBuyTempTimer = $iAutoBuyTimer
 					WinActivate("Idle Slayer")
 					If WinGetTitle("[ACTIVE]") == "Idle Slayer" Then
-						SyncProcess(False)
 						BuyEquipment()
-						SyncProcess(True)
 					EndIf
 				EndIf
 			EndIf
