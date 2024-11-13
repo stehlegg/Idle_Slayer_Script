@@ -565,7 +565,7 @@ Func BuyEquipment()
 	EndIf
 EndFunc   ;==>BuyEquipment
 
-Func BuyUpgrade()
+Func BuyUpgrade($bClaimedQuest = False)
 	; Navigate to upgrade and scroll up
 	MouseClick("left", 927, 683, 1, 0)
 	Sleep(150)
@@ -605,7 +605,7 @@ Func BuyUpgrade()
 			Sleep(50)
 		EndIf
 	WEnd
-	If $bSomethingBought Then
+	If $bSomethingBought and not $bClaimedQuest Then
 		BuyEquipment()
 	Else
 		MouseClick("left", 1222, 677, 1, 0)
@@ -614,6 +614,7 @@ EndFunc   ;==>BuyUpgrade
 
 Func ClaimQuests()
 	WriteInLogs("Claiming quest")
+	Local $bClaimedQuest = False
 	;Close Shop window if open
 	MouseClick("left", 1244, 712, 1, 0)
 	Sleep(150)
@@ -653,13 +654,21 @@ Func ClaimQuests()
 			Sleep(10)
 		Else
 			;Click Green buy box
-			WriteInLogs("Quest Claimed")
+			PixelSearch(1125, $aLocation[1],1125, $aLocation[1],0x454545)
+			If not @error and not $bClaimedQuest Then
+				$bClaimedQuest = True
+				WriteInLogs("Quest Claimed")
+			Else
+				WriteInLogs("Daily or Weekly Quest Claimed")
+			EndIf
 			MouseClick("left", $aLocation[0], $aLocation[1], 5, 0)
 		EndIf
 	WEnd
-
-	;Close Shop
-	MouseClick("left", 1244, 712, 1, 0)
+	if $bClaimedQuest Then
+		BuyUpgrade($bClaimedQuest)
+	Else
+		MouseClick("left", 1222, 677, 1, 0)
+	EndIf
 
 EndFunc   ;==>ClaimQuests
 
