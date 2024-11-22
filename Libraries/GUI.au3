@@ -508,7 +508,7 @@ Func EventButtonUpdateClick()
 EndFunc   ;==>EventButtonUpdateClick
 
 Func SyncProcess($bJumpState = True)
-	If $bTogglePause == True Then
+	If $bTogglePause Then
 		$bJumpState = False
 	EndIf
 	; Convert variables to strings

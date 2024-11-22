@@ -68,6 +68,7 @@
 #AutoIt3Wrapper_Res_File_Add=Resources\280.jpg, RT_RCDATA, NUM280,0
 #AutoIt3Wrapper_Res_File_Add=Resources\290.jpg, RT_RCDATA, NUM290,0
 #AutoIt3Wrapper_Res_File_Add=Resources\300.jpg, RT_RCDATA, NUM300,0
+#AutoIt3Wrapper_Res_File_Add=Resources\QRM.txt, RT_RCDATA, QRM,0
 #AutoIt3Wrapper_Run_Stop_OnError=y
 #AutoIt3Wrapper_Run_Au3Stripper=y
 #EndRegion ;**** Directives created by AutoIt3Wrapper_GUI ****
@@ -84,6 +85,7 @@
 #include "Libraries\Common.au3"
 #include "Libraries\AscendingHeights.au3"
 #include "Libraries\Chesthunt.au3"
+#include "Libraries\QuestMap.au3"
 #include <ButtonConstants.au3>
 #include <GUIConstantsEx.au3>
 #include <StaticConstants.au3>
@@ -105,6 +107,7 @@ Func Main()
 	HotKeySet("{Home}", "Pause")
 	HotKeySet("+{Esc}", "IdleClose")
 	HotKeySet("^+b", "BuyEquipment")
+	Global $aWhitelistBacklog[0]
 	; Create Saving Directory
 	DirCreate("IdleRunnerLogs")
 	; Create GUI
@@ -579,33 +582,72 @@ Func BuyUpgrade($bClaimedQuest = False)
 	Sleep(400)
 	Local $bSomethingBought = False
 	Local $iY = 170
-	While 1
-		; Check if RandomBox Magnet is next upgrade
-		PixelSearch(882, $iY, 909, $iY + 72, 0xF4B41B)
-		If Not @error Then
-			$iY += 96
-		EndIf
-		; Check if RandomBox Magnet is next upgrade
-		PixelSearch(882, $iY, 909, $iY + 72, 0xE478FF)
-		If Not @error Then
-			$iY += 96
-		EndIf
-		;Electric worm
-		;PixelSearch(850, $iY, 850, $iY + 72, 0xF7A01E)
-		;If Not @error Then
-		;	$iY += 96
-		;EndIf
-		PixelSearch(1180, $iY, 1180, $iY, 0x10A322, 9)
-		If @error Then
-			ExitLoop
-		Else
-			$bSomethingBought = True
-			; Click green buy
-			MouseClick("left", 1180, $iY, 1, 0)
-			Sleep(50)
-		EndIf
-	WEnd
-	If $bSomethingBought and not $bClaimedQuest Then
+
+	If $bClaimedQuest Then
+		Local $iYY = $iY - 6
+		While True
+			; Grüne Box im Bereich finden
+			$aLocation = PixelSearch(1180, $iYY, 1180, $iYY + 95, 0x0D7F1A) ; Looking for green boxes
+			If @error Then
+				WriteInLogs("No Upgrade Affordable"); no green box, exiting (green always stacked on top)
+				ExitLoop
+			Else		;Something green found
+				For $i = 0 To UBound($aWhitelistBacklog) - 1
+					If ReadQuest(908, $aLocation[1], 1133, $aLocation[1] + 40, True, $aWhitelistBacklog[$i]) Then
+						; name fits whitelist, removing from array
+						_ArrayDelete($aWhitelistBacklog, $i)
+						MouseClick("left", $aLocation[0], $aLocation[1], 5, 0)
+		
+						; check if there are more entries in the whitelist
+						If UBound($aWhitelistBacklog) > 0 Then
+							WriteInLogs("More entries in Whitelist. Keeping going.")
+							ExitLoop
+						Else
+							WriteInLogs("Whitelist empty")
+							ExitLoop 2
+						EndIf
+						Sleep(50)
+					EndIf
+				Next
+				PixelSearch(1249, 645, 1253, 645, 0xD6D6D6)
+				If @error Then
+					If $iYY + 96 > 602 Then
+						WriteInLogs("reached end of upgrades list")
+						ExitLoop
+					Else
+						$iYY += 96
+					EndIf
+				Else
+					MouseWheel($MOUSE_WHEEL_DOWN, 2)
+					Sleep(20)
+				EndIf
+			EndIf
+		WEnd
+		If UBound($aWhitelistBacklog) > 0 Then WriteInLogs("Unlocked Upgrades remaining as unaffordable for now, adding to Whitelist Backlog for next round of buy")
+	Else
+		While 1
+			; Check if RandomBox Magnet is next upgrade
+			PixelSearch(882, $iY, 909, $iY + 72, 0xF4B41B)
+			If Not @error Then
+				$iY += 96
+			EndIf
+			; Check if RandomBox Magnet is next upgrade
+			PixelSearch(882, $iY, 909, $iY + 72, 0xE478FF)
+			If Not @error Then
+				$iY += 96
+			EndIf
+			PixelSearch(1180, $iY, 1180, $iY, 0x10A322, 9)
+			If @error Then
+				ExitLoop
+			Else
+				$bSomethingBought = True
+				; Click green buy
+				MouseClick("left", 1180, $iY, 1, 0)
+				Sleep(50)
+			EndIf
+		WEnd
+	EndIf
+	If $bSomethingBought Then
 		BuyEquipment()
 	Else
 		MouseClick("left", 1222, 677, 1, 0)
@@ -614,7 +656,7 @@ EndFunc   ;==>BuyUpgrade
 
 Func ClaimQuests()
 	WriteInLogs("Claiming quest")
-	Local $bClaimedQuest = False
+	Local $aUpgradeWhitelist[0]
 	;Close Shop window if open
 	MouseClick("left", 1244, 712, 1, 0)
 	Sleep(150)
@@ -628,91 +670,61 @@ Func ClaimQuests()
 	Sleep(150)
 	;Click on quest tab
 	MouseClick("left", 1030, 690, 1, 0)
-	Sleep(50)
+	Sleep(150)
 
 	; Check if Dailys Unlocked (Need different coords)
-	$bDailyRed = False
-	$bDailyGreen = False
+	Local $bDailyRed = False
+	Local $iTopOfScroll = 267
 	PixelSearch(1190, 173, 1190, 173, 0xAD1111)
 	if not @error Then $bDailyRed = True
 	PixelSearch(1190, 173, 1190, 173, 0x11AA23)
-	if not @error Then $bDailyGreen = True
+	if not @error Or $bDailyRed Then $iTopOfScroll = 170
 
-	If $bDailyGreen And $bDailyRed Then
-		; Top of scrollbar
-		MouseMove(1254, 272, 0)
-		Do
-			MouseWheel($MOUSE_WHEEL_UP, 20)
-			;Top of searchbar
-			PixelSearch(1254, 267, 1254, 267, 0xD6D6D6)
-		Until @error
-		Sleep(400)
+	; Top of scrollbar
+	MouseMove(1254, 272, 0)
+	Do
+		MouseWheel($MOUSE_WHEEL_UP, 20)
+		;Top of searchbar
+		PixelSearch(1254, $iTopOfScroll, 1254, $iTopOfScroll, 0xD6D6D6)
+	Until @error
+	Sleep(400)
 
-		While 1
-			;Check if there is any green buy boxes
-			$aLocation = PixelSearch(1160, 270, 1160, 590, 0x11AA23, 10)
+	While 1
+		;Check if there is any green buy boxes
+		$aLocation = PixelSearch(1160, $iTopOfScroll, 1160, 590, 0x11AA23, 10)
+		If @error Then
+			;Move mouse on ScrollBar
+			MouseMove(1253, 270, 0)
+			MouseWheel($MOUSE_WHEEL_DOWN, 1)
+			;Check gray scroll bar is there
+			PixelSearch(1253, 645, 1253, 645, 0xD6D6D6)
 			If @error Then
-				;Move mouse on ScrollBar
-				MouseMove(1253, 270, 0)
-				MouseWheel($MOUSE_WHEEL_DOWN, 1)
-				;Check gray scroll bar is there
-				PixelSearch(1253, 645, 1253, 645, 0xD6D6D6)
-				If @error Then
-					ExitLoop
-				EndIf
-				Sleep(10)
-			Else
-				;Click Green buy box
-				PixelSearch(1125, $aLocation[1],1125, $aLocation[1],0x454545)
-				If not @error and not $bClaimedQuest Then
-					$bClaimedQuest = True
-					WriteInLogs("Quest Claimed")
-				Else
-					WriteInLogs("Daily or Weekly Quest Claimed")
-				EndIf
-				MouseClick("left", $aLocation[0], $aLocation[1], 5, 0)
+				ExitLoop
 			EndIf
 			Sleep(10)
-		WEnd
-	Else	
-		; Top of scrollbar
-		MouseMove(1254, 272, 0)
-		Do
-			MouseWheel($MOUSE_WHEEL_UP, 20)
-			;Top of searchbar
-			PixelSearch(1254, 170, 1254, 170, 0xD6D6D6)
-		Until @error
-		Sleep(400)
-
-		While 1
-			;Check if there is any green buy boxes
-			$aLocation = PixelSearch(1160, 170, 1160, 590, 0x11AA23, 10)
-			If @error Then
-				;Move mouse on ScrollBar
-				MouseMove(1253, 270, 0)
-				MouseWheel($MOUSE_WHEEL_DOWN, 1)
-				;Check gray scroll bar is there
-				PixelSearch(1253, 645, 1253, 645, 0xD6D6D6)
-				If @error Then
-					ExitLoop
-				EndIf
-				Sleep(10)
+		Else
+			; Check if Quest to be accepted is daily/weekly
+			PixelSearch(1125, $aLocation[1],1125, $aLocation[1],0x454545)
+			If not @error Then
+				Local $iArrSize = UBound($aUpgradeWhitelist)
+				Redim $aUpgradeWhitelist[$iArrSize + 1]
+				$aUpgradeWhitelist[$iArrSize] = ReadQuest(908, $aLocation[1], 1133, $aLocation[1] + 31)
+				WriteInLogs("claimed Quest; "&$aUpgradeWhitelist[$iArrSize])
 			Else
-				;Click Green buy box
-				WriteInLogs("Quest Claimed")
-				MouseClick("left", $aLocation[0], $aLocation[1], 5, 0)
+				WriteInLogs("Daily or Weekly Quest Claimed")
+				Sleep(100)
 			EndIf
-		WEnd
-	EndIf
-	if $bClaimedQuest Then
-		BuyUpgrade($bClaimedQuest)
+			MouseClick("left", $aLocation[0], $aLocation[1], 5, 0)
+			Sleep(100)
+		EndIf
+	WEnd
+	if UBound($aUpgradeWhitelist) > 0 Then
+		_ArrayAdd($aWhitelistBacklog, $aUpgradeWhitelist)
+		BuyUpgrade(True)
 	Else
 		MouseClick("left", 1222, 677, 1, 0)
 	EndIf
-
 EndFunc   ;==>ClaimQuests
-
-
 
 Func ShootAndBoost()
 	Local $bJumpState = True
@@ -720,7 +732,6 @@ Func ShootAndBoost()
 	Local $iReadMsg = 0
 
 	While True
-
 		If TimerDiff($iReadMsg) > 700 Then
 			; Read the message
 			$sPendingMsg = _AuThread_ReadNewMsg()

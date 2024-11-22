@@ -11,7 +11,7 @@
 #include <WinAPIMisc.au3>
 #include <WinAPIRes.au3>
 #include <WindowsConstants.au3>
-#include <WinAPI.au3>
+#include <WinAPISysWin.au3>
 
 ; Call once the script has ended to tidy up the used resources
 OnAutoItExitRegister(_GDIPlus_Shutdown)
@@ -785,9 +785,13 @@ Func _Resource_SetToCtrlID($iCtrlID, $sResNameOrID, $iResType = $RT_RCDATA, $sDl
 					$iError = @error
 
 					If $bReturn Then
-						$bReturn = _WinAPI_DeleteObject($hHBITMAP) > 0 ; Delete if Vista or above
-						$vReturn = $bReturn
-
+						If _WinAPI_GetVersion() >= 6.0 Then
+							$bReturn = _WinAPI_DeleteObject($hHBITMAP) > 0 ; Delete if Vista or above
+							$vReturn = $bReturn
+						Else
+							__Resource_Storage($RESOURCE_STORAGE_ADD, $sDllOrExePath, $hHBITMAP, $sResNameOrID, $iResType, Null, $iResType, $iLength)
+							$vReturn = $hHBITMAP
+						EndIf
 					EndIf
 				EndIf
 			EndIf
